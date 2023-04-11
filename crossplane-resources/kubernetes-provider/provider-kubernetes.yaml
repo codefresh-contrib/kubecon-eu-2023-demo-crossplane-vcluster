@@ -1,0 +1,10 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-kubernetes
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  package: "crossplane/provider-kubernetes:v0.4.1"
+  controllerConfigRef:
+    name: kubernetes-controller-config

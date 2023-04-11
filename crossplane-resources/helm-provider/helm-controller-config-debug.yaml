@@ -1,0 +1,10 @@
+apiVersion: pkg.crossplane.io/v1alpha1
+kind: ControllerConfig
+metadata:
+  name: helm-config-debug
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  serviceAccountName: helm-provider-cluster-admin
+  args:
+  - '--debug'

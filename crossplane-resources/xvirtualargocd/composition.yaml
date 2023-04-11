@@ -1,0 +1,141 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: virtualargocd
+  labels:
+    crossplane.io/xrd:  xvirtualargocds.demo.codefresh.io
+    provider: helm
+spec:
+  compositeTypeRef:
+    apiVersion: demo.codefresh.io/v1alpha1
+    kind: XVirtualArgoCD
+  resources:
+  - name: vcluster
+    base:
+      apiVersion: helm.crossplane.io/v1beta1
+      kind: Release
+      name: vcluster-test-argocd
+      spec:
+        forProvider:
+          chart:
+            name: vcluster
+            repository: https://charts.loft.sh
+            version: 0.14.0
+          namespace: vcluster-test
+          values:
+            syncer:
+              extraArgs:
+              - --out-kube-config-secret=vcluster-kubeconfig
+              - --out-kube-config-server=https://vcluster-test.vcluster-test.svc.cluster.local
+              - --tls-san=vcluster-test.vcluster-test.svc.cluster.local
+            sync:
+              ingresses:
+                enabled: true
+              poddisruptionbudgets:
+                enabled: true
+        providerConfigRef:
+          name: default
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: metadata.name
+      toFieldPath: spec.forProvider.namespace
+    - type: FromCompositeFieldPath
+      fromFieldPath: metadata.name
+      toFieldPath: metadata.name
+      transforms:
+      - type: string
+        string:
+          fmt: "%s-vcluster"
+    - type: CombineFromComposite
+      combine:
+        variables:
+        - fromFieldPath: metadata.name
+        - fromFieldPath: metadata.name
+        strategy: string
+        string:
+          fmt: "--out-kube-config-server=https://%s-vcluster.%s.svc.cluster.local"
+      toFieldPath: spec.forProvider.values.syncer.extraArgs[1]
+    - type: CombineFromComposite
+      combine:
+        variables:
+        - fromFieldPath: metadata.name
+        - fromFieldPath: metadata.name
+        strategy: string
+        string:
+          fmt: "--tls-san=%s-vcluster.%s.svc.cluster.local"
+      toFieldPath: spec.forProvider.values.syncer.extraArgs[2]
+  - name: observe-delete-namespace
+    base:
+      apiVersion: kubernetes.crossplane.io/v1alpha1
+      kind: Object
+      metadata:
+        name: foo
+      spec:
+        managementPolicy: ObserveDelete
+        forProvider:
+          manifest:
+            apiVersion: v1
+            kind: Namespace
+        providerConfigRef:
+          name: kubernetes-provider
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: metadata.name
+      toFieldPath: metadata.name
+  - name: provider-config-helm-vcluster
+    base:
+      apiVersion: helm.crossplane.io/v1beta1
+      kind: ProviderConfig
+      metadata:
+        name: foo
+      spec:
+        credentials:
+          secretRef:
+            key: config
+            name: vcluster-kubeconfig
+            namespace: foo
+          source: Secret
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: metadata.name
+      toFieldPath: metadata.name
+    - type: FromCompositeFieldPath
+      fromFieldPath: metadata.name
+      toFieldPath: spec.credentials.secretRef.namespace
+    - type: ToCompositeFieldPath
+      fromFieldPath: metadata.name
+      toFieldPath: status.vcluster.helmProviderName
+
+  - name: argocd-on-vcluster
+    base:
+      apiVersion: helm.crossplane.io/v1beta1
+      kind: Release
+      metadata:
+        name: vcluster-test-argocd
+      spec:
+        providerConfigRef:
+          name: vcluster-test-helm-provider
+        forProvider:
+          chart:
+            name: argo-cd
+            repository: https://argoproj.github.io/argo-helm
+            version: 5.21.0
+          namespace: argocd
+    patches:
+    - type: FromCompositeFieldPath
+      fromFieldPath: metadata.name
+      toFieldPath: metadata.name
+      transforms:
+      - type: string
+        string:
+          fmt: "%s-argocd"
+    - type: FromCompositeFieldPath
+      fromFieldPath: status.vcluster.helmProviderName
+      toFieldPath: spec.providerConfigRef.name
+    - type: FromCompositeFieldPath
+      fromFieldPath: spec.argocd.values
+      toFieldPath: spec.forProvider.values
+      policy:
+        mergeOptions:
+          appendSlice: true
+          keepMapValues: true

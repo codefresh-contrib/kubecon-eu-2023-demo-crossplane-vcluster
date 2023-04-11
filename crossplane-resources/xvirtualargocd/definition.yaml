@@ -1,0 +1,53 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xvirtualargocds.demo.codefresh.io
+spec:
+  group: demo.codefresh.io
+  names:
+    kind: XVirtualArgoCD
+    plural: xvirtualargocds
+  claimNames:
+    kind: VirtualArgoCD
+    plural: virtualargocds
+  versions:
+  - name: v1alpha1
+    served: true
+    referenceable: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        properties:
+          spec:
+            type: object
+            properties:
+              vcluster:
+                type: object
+                properties:
+                  values:
+                    description: Values for vcluster Helm chart
+                    type: object
+              argocd:
+                type: object
+                properties:
+                  values:
+                    x-kubernetes-preserve-unknown-fields: true
+                    description: Values for vcluster Helm chart
+                    type: object
+            # required:
+            # - vcluster-values
+          status:
+            type: object
+            properties:
+              vcluster:
+                type: object
+                properties:
+                  kubeconfigSecretName:  
+                    description: Name of the secret that holds the Kubeconfig for the virtual cluster.
+                    type: string
+                  kubeconfigSecretKey:
+                    description: Name of the key in the secret that hold Kubeconfig for the virtual cluster.
+                    type: string
+                  helmProviderName:
+                    description: Name of the Helm provider created for vcluster
+                    type: string
